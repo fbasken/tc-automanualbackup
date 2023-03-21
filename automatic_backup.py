@@ -1,13 +1,18 @@
+'''
+AutoManual Backup by Freddie
+
+3/21/2023
+
+Change backup location to C:\ITS\_BACKUP
+Change .pst file location
+'''
+
 import ctypes
 import os
 import sys
 import shutil
 from datetime import datetime
 from os.path import expanduser
-
-# TODO:
-# Change backup location to C:\ITS\_BACKUP
-
 
 REQUIRE_ADMIN = False
 
@@ -130,7 +135,7 @@ def displayHeader(headerText):
     
 def main():
 
-    print("Backup path:\n" + backupFolderPath + "\n")
+    print("Backup folder path:\n" + backupFolderPath + "\n")
     # Check if we already have a backup folder
     while (os.path.exists(backupFolderPath)):
         print("Backup folder already exists. If you would like to perform a backup, please delete/move/rename the existing backup folder.")
@@ -149,7 +154,8 @@ def main():
 
             if (username.lower().strip() == "exit"):
                 # End program
-                input("\n--\nBackup folder is on your Desktop.\nPress Enter to quit.")
+                print("\n--\n\nBackup folder path:\n" + backupFolderPath + "\n")
+                input("Press Enter to quit.")
                 sys.exit()
 
             userHomeFolder = getHomeFolderForUsername(username)
@@ -164,9 +170,16 @@ def main():
                 monthsSinceModified = timeSinceModified.days / 30.4167
 
                 print("Last modified: " + str(round(monthsSinceModified, 1)) + " months ago")
-                if (monthsSinceModified > 3):
-                    print("Skipping backup for " + username + "; it has been over 3 months since this user folder was modified.")
-                    validUsername = False
+
+                MONTH_LIMIT = 1
+                if (monthsSinceModified > MONTH_LIMIT):
+                    print("This user folder hasn't been modified in over " + str(MONTH_LIMIT) +" months.")
+                    ans = input("Continue with backup? (N/y) ")
+                    if ans.lower().strip() == "y":
+                        print("Continuing with backup for '" + username + "'\n")
+                    else:
+                        print("Skipping backup for '" + username + "'\n")
+                        validUsername = False
 
 
         print()
@@ -291,6 +304,13 @@ def backupUser(username):
                 continue
             
             safeCopy(fullFilePath, dest_path)
+
+    # Back up Firefox/profiles.ini file
+    src_path = os.path.join(userHomeFolder, "AppData", "Roaming", "Mozilla", "Firefox", "profiles.ini")
+    dest_path = os.path.join(backupUsersFolderPath, username, "AppData", "Roaming", "Mozilla", "Firefox")
+
+    displayHeader("Backing up Mozilla Firefox profiles.ini file")
+    safeCopy(src_path, dest_path)
 
     # Back up all non-standard folders in user folder
     src_path = userHomeFolder
