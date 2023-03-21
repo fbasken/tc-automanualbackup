@@ -1,8 +1,11 @@
 '''
 AutoManual Backup by Freddie
+SAFE VERSION that will not actually back most things up. For testing.
 
 3/21/2023
 
+Change backup location to C:\ITS\_BACKUP
+Change .pst file location
 '''
 
 import ctypes
@@ -12,13 +15,14 @@ import shutil
 from datetime import datetime
 from os.path import expanduser
 
-REQUIRE_ADMIN = True
+REQUIRE_ADMIN = False
 
 # Backup root folder name
 backupFolderName = "_BACKUP"
 
 # Where to backup
-backupFolderPath = "\\ITS\\" + backupFolderName
+backupFolderPath = os.path.join(
+    expanduser("~"), "Desktop", backupFolderName)
 
 # List of paths to back up
 folderPathsToCopy = [
@@ -169,7 +173,7 @@ def main():
 
                 print("Last modified: " + str(round(monthsSinceModified, 1)) + " months ago")
 
-                MONTH_LIMIT = 3
+                MONTH_LIMIT = 1
                 if (monthsSinceModified > MONTH_LIMIT):
                     print("This user folder hasn't been modified in over " + str(MONTH_LIMIT) +" months.")
                     ans = input("Continue with backup? (N/y) ")
@@ -272,10 +276,11 @@ def backupUser(username):
         src_path = os.path.join(userHomeFolder, relativePath)
         dest_path = os.path.join(backupUsersFolderPath, username, relativePath)
 
-        safeCopy(src_path, dest_path)
+        # safeCopy(src_path, dest_path)
     
     # Back up .PST files
     src_path = os.path.join(userHomeFolder, "AppData", "Local", "Microsoft", "Outlook")
+    src_path = os.path.join(userHomeFolder, "Desktop") # DELETE THIS
     dest_path = os.path.join(backupUsersFolderPath, username, "AppData", "Local", "Microsoft", "Outlook")
 
     displayHeader("Backing up Microsoft Outlook .pst files")
