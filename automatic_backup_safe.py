@@ -211,6 +211,8 @@ def safeCopy(src_path, dest_path):
             if(os.path.exists(dest_path)):
                 # This should not happen ever
                 print("Failed !!!    | " + paddedOutput + " | (Did not copy folder since destination already exists)")
+                
+            # However, we should be passing in-non existing directory destnations, since copytree() will create it.
             else:
                 print("Copying dir   | " + paddedOutput)
                 shutil.copytree(src_path, dest_path)

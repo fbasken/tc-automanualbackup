@@ -1,7 +1,7 @@
 '''
 AutoManual Backup by Freddie
 
-3/21/2023
+ver 3/22/2023
 
 '''
 
@@ -20,8 +20,8 @@ backupFolderName = "_BACKUP"
 # Where to backup
 backupFolderPath = "\\ITS\\" + backupFolderName
 
-# List of paths to back up
-folderPathsToCopy = [
+# List of paths to back up, relative to the user folder
+userFolderPathsToCopy = [
     os.path.join(
         "AppData", "Local", "Microsoft", "Outlook", "Offline Address Books"),
     os.path.join(
@@ -60,6 +60,7 @@ folderPathsToCopy = [
         "Work Folders")
 ]
 
+# List of standard folders found in the user folder
 standardItemsInUserFolder = [
     ".cisco",
     ".ms-ad",
@@ -78,6 +79,12 @@ standardItemsInUserFolder = [
     "Work Folders"
 ]
 
+# List of root paths to copy
+rootFolderPathsToCopy = [
+    "\\SAS"
+]
+
+# List of standard folders found in the root folder
 standardItemsInRootFolder = [
     "$WinREAgent",
     "APPDIR",
@@ -137,7 +144,7 @@ def main():
     # Check if we already have a backup folder
     while (os.path.exists(backupFolderPath)):
         print("Backup folder already exists. If you would like to perform a backup, please delete/move/rename the existing backup folder.")
-        # print("Backup folder already exists. Would you like to make a new backup folder? ['y' to continue, anything else to exit] ")
+        # print("Backup folder already exists. Would you like to make a new backup folder? [y/N] ")
         input("Press Enter to retry.\n")
 
     print()
@@ -172,7 +179,7 @@ def main():
                 MONTH_LIMIT = 3
                 if (monthsSinceModified > MONTH_LIMIT):
                     print("This user folder hasn't been modified in over " + str(MONTH_LIMIT) +" months.")
-                    ans = input("Continue with backup? (N/y) ")
+                    ans = input("Continue with backup? [y/N] ")
                     if ans.lower().strip() == "y":
                         print("Continuing with backup for '" + username + "'\n")
                     else:
@@ -207,6 +214,8 @@ def safeCopy(src_path, dest_path):
             if(os.path.exists(dest_path)):
                 # This should not happen ever
                 print("Failed !!!    | " + paddedOutput + " | (Did not copy folder since destination already exists)")
+                
+            # However, we should be passing in-non existing directory destnations, since copytree() will create it.
             else:
                 print("Copying dir   | " + paddedOutput)
                 shutil.copytree(src_path, dest_path)
@@ -218,12 +227,14 @@ def backupRoot():
     
     enableWindowsSleepPrevention(True)
 
-    # Back up C:\SAS
-    displayHeader("Backing up C:\\SAS\\")
-    src_path = "\\SAS"
-    dest_path = backupFolderPath
+    # Back up selected folders on the root
+    displayHeader("Backing up select root folders")
 
-    safeCopy(src_path, dest_path)
+    for path in rootFolderPathsToCopy:
+        src_path = path
+        dest_path = backupFolderPath + path
+
+        safeCopy(src_path, dest_path)
 
     # Back up all non-standard folders on C:
     displayHeader("Backing up non-standard folders on C:\\")
@@ -268,7 +279,7 @@ def backupUser(username):
 
     # Back up each listed folder path
     displayHeader("Backing up user folders and data")
-    for relativePath in folderPathsToCopy:
+    for relativePath in userFolderPathsToCopy:
         src_path = os.path.join(userHomeFolder, relativePath)
         dest_path = os.path.join(backupUsersFolderPath, username, relativePath)
 
