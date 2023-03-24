@@ -1,10 +1,11 @@
 '''
 AutoManual Backup by Freddie
 
-ver 3/22/2023
+ver 3/23/2023
 
 '''
 
+import logging
 import ctypes
 import os
 import sys
@@ -12,7 +13,11 @@ import shutil
 from datetime import datetime
 from os.path import expanduser
 
+# If True, will attempt to elevate the program on launch
 REQUIRE_ADMIN = True
+
+# If True, will disable all actual copying/directory creation. Use when testing.
+DEBUG_ONLY_DONT_COPY = False
 
 # Backup root folder name
 backupFolderName = "_BACKUP"
@@ -105,6 +110,10 @@ standardItemsInRootFolder = [
     "System Volume Information"
 ]
 
+def logPrint(output=""):
+    print(output)
+    logging.info(output)
+    
 #   Adapted from https://stackoverflow.com/a/57647169
 # Prevent OS sleep/hibernate in windows; code from:
 # https://github.com/h3llrais3r/Deluge-PreventSuspendPlus/blob/master/preventsuspendplus/core.py
@@ -115,10 +124,10 @@ ES_SYSTEM_REQUIRED = 0x00000001
 
 def enableWindowsSleepPrevention(preventSleep):
     if (preventSleep):
-        print("\n-- Preventing Windows from going to sleep")
+        logPrint("\n-- Preventing Windows from going to sleep")
         ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
     else:
-        print("\n-- Allowing Windows to go to sleep")
+        logPrint("\n-- Allowing Windows to go to sleep")
         ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
 
 #   From https://stackoverflow.com/a/1026626
@@ -136,20 +145,25 @@ def isHidden(path):
     return bool(ctypes.windll.kernel32.GetFileAttributesW(path) & 2)
 
 def displayHeader(headerText):
-    print("\n-- " + headerText)
+    logPrint("\n-- " + headerText)
     
 def main():
+    # Set up logging
+    logFileName = "automanualbackup_log" + str(datetime.now().timestamp()) + ".txt"
+    logging.basicConfig(filename=logFileName, encoding='utf-8', level=logging.DEBUG)
 
-    print("Backup folder path:\n" + backupFolderPath + "\n")
+    # Inform user of backup folder location
+    logPrint("Backup folder path:\n" + backupFolderPath + "\n")
+
     # Check if we already have a backup folder
     while (os.path.exists(backupFolderPath)):
-        print("Backup folder already exists. If you would like to perform a backup, please delete/move/rename the existing backup folder.")
-        # print("Backup folder already exists. Would you like to make a new backup folder? [y/N] ")
+        logPrint("Backup folder already exists. If you would like to perform a backup, please delete/move/rename the existing backup folder.")
+        # logPrint("Backup folder already exists. Would you like to make a new backup folder? [y/N] ")
         input("Press Enter to retry.\n")
 
-    print()
+    logPrint()
     backupRoot()
-    print()
+    logPrint()
 
     while True:
 
@@ -159,37 +173,39 @@ def main():
 
             if (username.lower().strip() == "exit"):
                 # End program
-                print("\n--\n\nBackup folder path:\n" + backupFolderPath + "\n")
+                logPrint("\n--\n\nBackup folder path:\n" + backupFolderPath + "\n")
+
                 input("Press Enter to quit.")
+                
                 sys.exit()
 
             userHomeFolder = getHomeFolderForUsername(username)
             validUsername = os.path.exists(userHomeFolder)
 
             if (not validUsername):
-                print("User does not exist.\n")
+                logPrint("User does not exist.\n")
             else:
                 lastModifiedDate = datetime.fromtimestamp(os.path.getmtime(userHomeFolder))
                 timeSinceModified = datetime.now() - lastModifiedDate
 
                 monthsSinceModified = timeSinceModified.days / 30.4167
 
-                print("Last modified: " + str(round(monthsSinceModified, 1)) + " months ago")
+                logPrint("Last modified: " + str(round(monthsSinceModified, 1)) + " months ago")
 
                 MONTH_LIMIT = 3
                 if (monthsSinceModified > MONTH_LIMIT):
-                    print("This user folder hasn't been modified in over " + str(MONTH_LIMIT) +" months.")
+                    logPrint("This user folder hasn't been modified in over " + str(MONTH_LIMIT) +" months.")
                     ans = input("Continue with backup? [y/N] ")
                     if ans.lower().strip() == "y":
-                        print("Continuing with backup for '" + username + "'\n")
+                        logPrint("Continuing with backup for '" + username + "'\n")
                     else:
-                        print("Skipping backup for '" + username + "'\n")
+                        logPrint("Skipping backup for '" + username + "'\n")
                         validUsername = False
 
 
-        print()
+        logPrint()
         backupUser(username)
-        print()
+        logPrint()
 
 # Given a source path, and a destination folder, will copy the source file/folder (and subfolders)
 # and create a destination path if necessary
@@ -203,27 +219,30 @@ def safeCopy(src_path, dest_path):
         if os.path.isfile(src_path):
             # Then, if the destination doesn't exist, make it
             if(not os.path.exists(dest_path)):
-                os.makedirs(dest_path, exist_ok= True)
+                if (not DEBUG_ONLY_DONT_COPY):
+                    os.makedirs(dest_path, exist_ok= True)
 
-            print("Copying file  | " + paddedOutput)
-            shutil.copy(src_path, dest_path)
+            logPrint("Copying file  | " + paddedOutput)
+            if (not DEBUG_ONLY_DONT_COPY):
+                shutil.copy(src_path, dest_path)
 
         # If the SOURCE path to copy is a FOLDER, copy it recursively
         else:
             # Then, if the destination DOES exist, this will FAIL
             if(os.path.exists(dest_path)):
                 # This should not happen ever
-                print("Failed !!!    | " + paddedOutput + " | (Did not copy folder since destination already exists)")
+                logPrint("Failed !!!    | " + paddedOutput + " | (Did not copy folder since destination already exists)")
                 
             # However, we should be passing in-non existing directory destnations, since copytree() will create it.
             else:
-                print("Copying dir   | " + paddedOutput)
-                shutil.copytree(src_path, dest_path)
+                logPrint("Copying dir   | " + paddedOutput)
+                if (not DEBUG_ONLY_DONT_COPY):
+                    shutil.copytree(src_path, dest_path)
     else:
-        print("Skipping path | " + paddedOutput + " | (Does not exist)")
+        logPrint("Skipping path | " + paddedOutput + " | (Does not exist)")
 
 def backupRoot():
-    print("[ BACKING UP ROOT FOLDERS (Non-user specific) ]")
+    logPrint("[ BACKING UP ROOT FOLDERS (Non-user specific) ]")
     
     enableWindowsSleepPrevention(True)
 
@@ -248,29 +267,29 @@ def backupRoot():
 
             # If it's not a folder (it's a file)
             if os.path.isfile(fullFilePath):
-                print("Skipping path | " + paddedOutput + " | (Is a file, not a folder)")
+                logPrint("Skipping path | " + paddedOutput + " | (Is a file, not a folder)")
                 continue
             # If the folder is standard
             if filename in standardItemsInRootFolder:
-                print("Skipping path | " + paddedOutput + " | (Standard folder)")
+                logPrint("Skipping path | " + paddedOutput + " | (Standard folder)")
                 continue
             # If the folder starts with . or $
             if filename.startswith(".") or filename.startswith("$"):
-                print("Skipping path | " + paddedOutput + " | (Skipped due to prefix)")
+                logPrint("Skipping path | " + paddedOutput + " | (Skipped due to prefix)")
                 continue
             # If the folder is hidden
             if(isHidden(fullFilePath)):
-                print("Skipping path | " + paddedOutput + " | (Hidden folder)")
+                logPrint("Skipping path | " + paddedOutput + " | (Hidden folder)")
                 continue
             
             safeCopy(fullFilePath, os.path.join(dest_path, filename))
 
     enableWindowsSleepPrevention(False)
 
-    print("\n[DONE]")
+    logPrint("\n[DONE]")
 
 def backupUser(username):
-    print("[ BACKING UP USER: '" + username + "' ]")
+    logPrint("[ BACKING UP USER: '" + username + "' ]")
 
     enableWindowsSleepPrevention(True)
 
@@ -289,12 +308,13 @@ def backupUser(username):
     src_path = os.path.join(userHomeFolder, "AppData", "Local", "Microsoft", "Outlook")
     dest_path = os.path.join(backupUsersFolderPath, username, "AppData", "Local", "Microsoft", "Outlook")
 
-    displayHeader("Backing up Microsoft Outlook .pst files")
-    for filename in os.listdir(src_path):
-        if filename.endswith(".pst"):
-            fullFilePath = os.path.join(src_path, filename)
-            
-            safeCopy(fullFilePath, dest_path)
+    if os.path.exists(src_path):
+        displayHeader("Backing up Microsoft Outlook .pst files")
+        for filename in os.listdir(src_path):
+            if filename.endswith(".pst"):
+                fullFilePath = os.path.join(src_path, filename)
+                
+                safeCopy(fullFilePath, dest_path)
 
     # Back up Chrome\User Data\Default, except for Service Worker folder
     src_path = os.path.join(userHomeFolder, "AppData", "Local", "Google", "Chrome", "User Data", "Default")
@@ -335,19 +355,19 @@ def backupUser(username):
 
             # If it's not a folder (it's a file)
             if os.path.isfile(fullFilePath):
-                print("Skipping path | " + paddedOutput + " | (Is a file, not a folder)")
+                logPrint("Skipping path | " + paddedOutput + " | (Is a file, not a folder)")
                 continue
             # If the folder is standard
             if filename in standardItemsInUserFolder:
-                print("Skipping path | " + paddedOutput + " | (Standard folder)")
+                logPrint("Skipping path | " + paddedOutput + " | (Standard folder)")
                 continue
             # If the folder starts with . or $
             if filename.startswith(".") or filename.startswith("$"):
-                print("Skipping path | " + paddedOutput + " | (Skipped due to prefix)")
+                logPrint("Skipping path | " + paddedOutput + " | (Skipped due to prefix)")
                 continue
             # If the folder is hidden
             if(isHidden(fullFilePath)):
-                print("Skipping path | " + paddedOutput + " | (Hidden folder)")
+                logPrint("Skipping path | " + paddedOutput + " | (Hidden folder)")
                 continue
 
             safeCopy(fullFilePath, os.path.join(dest_path, filename))
@@ -358,13 +378,13 @@ def backupUser(username):
     if os.path.exists(appdataPath):
         # Mark as hidden
         ctypes.windll.kernel32.SetFileAttributesW(appdataPath, 2)
-        print("AppData folder for '" + username + "' successfully hidden.")
+        logPrint("AppData folder for '" + username + "' successfully hidden.")
     else:
-        print("Error! Could not hide AppData folder-- AppData folder for '" + username + "' does not exist.")
+        logPrint("Error! Could not hide AppData folder-- AppData folder for '" + username + "' does not exist.")
     
     enableWindowsSleepPrevention(False)
 
-    print("\n[DONE]")
+    logPrint("\n[DONE]")
 
 # Returns the path to the user's home folder
 def getHomeFolderForUsername(username):
