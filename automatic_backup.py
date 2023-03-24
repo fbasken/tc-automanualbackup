@@ -13,7 +13,7 @@ import shutil
 from datetime import datetime
 from os.path import expanduser
 
-# If True, will attempt to elevate the program on launch
+# If True, will attempt to elevate the program on launch (recommended!)
 REQUIRE_ADMIN = True
 
 # If True, will disable all actual copying/directory creation. Use when testing.
@@ -148,9 +148,16 @@ def displayHeader(headerText):
     logPrint("\n-- " + headerText)
     
 def main():
+    # Warn if running in debug mode
+    if (DEBUG_ONLY_DONT_COPY):
+        print("NOTE: The program is running in debug mode. No files will be copied -- this mode is for testing.")
+        print("\n\tDEBUG_ONLY_DONT_COPY = True\n\n")
+
+
     # Set up logging
     logFileName = "automanualbackup_log" + str(datetime.now().timestamp()) + ".txt"
     logging.basicConfig(filename=logFileName, encoding='utf-8', level=logging.DEBUG)
+    print("[Created log file: " + logFileName + "]\n")
 
     # Inform user of backup folder location
     logPrint("Backup folder path:\n" + backupFolderPath + "\n")
