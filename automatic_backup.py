@@ -2,7 +2,7 @@
 AutoManual Backup by Freddie
 for DESKTOP side backups
 
-ver 3/30/2023
+ver 3/31/2023
 
 '''
 
@@ -15,10 +15,10 @@ from datetime import datetime
 from os.path import expanduser
 
 # If True, will attempt to elevate the program on launch (recommended!)
-REQUIRE_ADMIN = True
+REQUIRE_ADMIN = False
 
 # If True, will disable all actual copying/directory creation. Use when testing.
-DEBUG_ONLY_DONT_COPY = False
+DEBUG_ONLY_DONT_COPY = True
 
 # Backup root folder name
 backupFolderName = "_BACKUP"
@@ -156,7 +156,7 @@ def main():
     # Set up logging
     logFileName = "automanualbackup_log" + str(datetime.now().timestamp()) + ".txt"
     logging.basicConfig(filename=logFileName, encoding='utf-8', level=logging.DEBUG)
-    print("[Created log file: " + logFileName + "]\n")
+    print("[ Created log file: " + logFileName + " ]\n")
 
     # Inform user of backup folder location
     logPrint("Backup folder path:\n" + backupFolderPath + "\n")
@@ -287,8 +287,14 @@ def backupRoot():
             if(isHidden(fullFilePath)):
                 logPrint("Skipping path | " + paddedOutput + " | (Hidden folder)")
                 continue
-            
-            safeCopy(fullFilePath, os.path.join(dest_path, filename))
+
+            logPrint("OK to copy?   | " + paddedOutput + " | (Prompting since this is a non-standard folder)")
+            ans = input("[y/N] ")
+            if ans.lower().strip() == "y":
+                logPrint("User selected Y; attempting to copy above folder.")
+                safeCopy(fullFilePath, os.path.join(dest_path, filename))
+            else:
+                logPrint("User selected N; skipped above folder.")
 
     enableWindowsSleepPrevention(False)
 
@@ -402,8 +408,14 @@ def backupUser(username):
             if(isHidden(fullFilePath)):
                 logPrint("Skipping path | " + paddedOutput + " | (Hidden folder)")
                 continue
-
-            safeCopy(fullFilePath, os.path.join(dest_path, filename))
+            
+            logPrint("OK to copy?   | " + paddedOutput + " | (Prompting since this is a non-standard folder)")
+            ans = input("[y/N] ")
+            if ans.lower().strip() == "y":
+                logPrint("User selected Y; attempting to copy above folder.")
+                safeCopy(fullFilePath, os.path.join(dest_path, filename))
+            else:
+                logPrint("User selected N; skipped above folder.")
 
     # Hide AppData folder
     appdataPath = os.path.join(backupUsersFolderPath, username, "AppData")
