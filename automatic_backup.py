@@ -1,7 +1,8 @@
 '''
 AutoManual Backup by Freddie
+for DESKTOP side backups
 
-ver 3/23/2023
+ver 3/30/2023
 
 '''
 
@@ -60,9 +61,7 @@ userFolderPathsToCopy = [
     os.path.join(
         "Saved Games"),
     os.path.join(
-        "Videos"),
-    os.path.join(
-        "Work Folders")
+        "Videos")
 ]
 
 # List of standard folders found in the user folder
@@ -237,8 +236,8 @@ def safeCopy(src_path, dest_path):
         else:
             # Then, if the destination DOES exist, this will FAIL
             if(os.path.exists(dest_path)):
-                # This should not happen ever
-                logPrint("Failed !!!    | " + paddedOutput + " | (Did not copy folder since destination already exists)")
+                # This should not happen ever! ! !
+                logPrint("Failed !!!    | " + paddedOutput + " | (Did not copy folder since destination already exists) | " + dest_path)
                 
             # However, we should be passing in-non existing directory destnations, since copytree() will create it.
             else:
@@ -311,6 +310,33 @@ def backupUser(username):
 
         safeCopy(src_path, dest_path)
     
+    # Back up Work Folders
+    # This goes file-by-file, because doing it all at once resulted in errors that were hard to catch and left the backup state unclear.
+    workFoldersPath  = os.path.join(userHomeFolder, "Documents", "repos")
+    if os.path.exists(workFoldersPath):
+        displayHeader("Backing up Work Folders")
+        # Finds every single file and directory + sub directories in the entire directory
+        for root, dirs, files in os.walk(workFoldersPath, topdown=False):
+                # Back up all files
+                for name in files:
+                    src_path = os.path.join(root, name)
+                    dest_path = backupFolderPath + os.path.dirname(os.path.join(root, name))
+                    try:
+                        safeCopy(src_path, dest_path)
+                        Exception()
+                    except:
+                        logPrint("FAILED COPY!! | " + paddedOutput + " | (Attempted to copy but there was an error)")
+
+                # Back up all directories (that weren't created by the previous files!!!)
+                # This should basically create any empty folders
+                # This is because any non-empty folders would have been created in the process of copying the files within
+                for name in dirs:
+                    src_path = os.path.join(root, name)
+                    dest_path = backupFolderPath + os.path.join(root, name)
+                    # Only back it up if it doesn't exist
+                    if(not os.path.exists(dest_path)):
+                        safeCopy(src_path, dest_path)
+
     # Back up .PST files
     src_path = os.path.join(userHomeFolder, "AppData", "Local", "Microsoft", "Outlook")
     dest_path = os.path.join(backupUsersFolderPath, username, "AppData", "Local", "Microsoft", "Outlook")
@@ -391,7 +417,7 @@ def backupUser(username):
     
     enableWindowsSleepPrevention(False)
 
-    logPrint("\n[DONE]")
+    logPrint("\n[DONE]")    
 
 # Returns the path to the user's home folder
 def getHomeFolderForUsername(username):
