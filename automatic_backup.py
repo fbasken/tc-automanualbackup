@@ -15,10 +15,10 @@ from datetime import datetime
 from os.path import expanduser
 
 # If True, will attempt to elevate the program on launch (recommended!)
-REQUIRE_ADMIN = False
+REQUIRE_ADMIN = True
 
 # If True, will disable all actual copying/directory creation. Use when testing.
-DEBUG_ONLY_DONT_COPY = True
+DEBUG_ONLY_DONT_COPY = False
 
 # Backup root folder name
 backupFolderName = "_BACKUP"
