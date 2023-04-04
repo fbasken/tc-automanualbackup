@@ -2,7 +2,7 @@
 AutoManual Backup by Freddie
 for DESKTOP side backups
 
-ver 3/31/2023
+ver 4/4/2023
 
 '''
 
@@ -183,82 +183,65 @@ def main():
 
     # Display list of usernames
     usersList = getUsersList()
-    logPrint("\nLocated " + str(len(usersList)) + " user accounts:")
+    usersToBackup = []
+    logPrint("\nLocated " + str(len(usersList)) + " user folders:")
 
     for username in usersList:
         # Skip standard usernames
         if username in standardUsernames:
+            logPrint(username.ljust(12) + " | (Skipped since this is a standard folder)")
             continue
-
+        
+        # Get folder info
         userHomeFolder = getHomeFolderForUsername(username)
-
         lastModifiedDate = datetime.fromtimestamp(os.path.getmtime(userHomeFolder))
         timeSinceModified = datetime.now() - lastModifiedDate
         monthsSinceModified = timeSinceModified.days / 30.4167
 
+        # Display each user, formatted on their own line, with the date modified
         logPrint(username.ljust(12) +
                  " | Last modified: " +
                  str(round(monthsSinceModified, 1)) +
-                 " months ago | ","")
-        ans = input("Backup this user? [y/N] ")
-        if ans.lower().strip() == "y":
-            logPrint()
-
+                 " months ago","")  # Don't end with a newline
+        
+        # Warn if the user folder hasn't been modified in a while
         MONTH_LIMIT = 3
         if (monthsSinceModified > MONTH_LIMIT):
-            logPrint("This user folder hasn't been modified in over " + str(MONTH_LIMIT) +" months.")
-            ans = input("Continue with backup? [y/N] ")
-            if ans.lower().strip() == "y":
-                logPrint("Continuing with backup for '" + username + "'\n")
-            else:
-                logPrint("Skipping backup for '" + username + "'\n")
-                validUsername = False
+            logPrint("\n" + (" " * 12) + " | This user folder hasn't been modified in over " + str(MONTH_LIMIT) + " months." +
+                     "\n" + (" " * 12),"")
 
+        # Confirm backup for each user folder
+        ans = input(" | Backup this user? [y/N] ")
+        if ans.lower().strip() == "y":
+            usersToBackup.append(username)
+            logPrint((" " * 12) + " | Added '" + username + "' to backup list.")
+        else:
+            logPrint((" " * 12) + " | Skipping backup for '" + username + "'.")
 
+    # Inform the user what they're about to back up
+    logPrint("\nList of user folders to be backed up:")
+    for username in usersToBackup:
+        logPrint(username)
+    input("\nPress Enter to confirm and start backup. (For any non-standard folders, you will be prompted to confirm again.) ")
+
+    startTime = datetime.now()
+
+    # Perform backup
     logPrint()
     backupRoot()
     logPrint()
-
-    while True:
-
-        validUsername = False
-        while (not validUsername):
-            username = input("Enter username to backup (or type 'exit'): ")
-
-            if (username.lower().strip() == "exit"):
-                # End program
-                logPrint("\n--\n\nBackup folder path:\n" + backupFolderPath + "\n")
-
-                input("Press Enter to quit.")
-                
-                sys.exit()
-
-            validUsername = os.path.exists(userHomeFolder)
-
-            if (not validUsername):
-                logPrint("User does not exist.\n")
-            else:
-                lastModifiedDate = datetime.fromtimestamp(os.path.getmtime(userHomeFolder))
-                timeSinceModified = datetime.now() - lastModifiedDate
-
-                monthsSinceModified = timeSinceModified.days / 30.4167
-
-                logPrint("Last modified: " + str(round(monthsSinceModified, 1)) + " months ago")
-
-                MONTH_LIMIT = 3
-                if (monthsSinceModified > MONTH_LIMIT):
-                    logPrint("This user folder hasn't been modified in over " + str(MONTH_LIMIT) +" months.")
-                    ans = input("Continue with backup? [y/N] ")
-                    if ans.lower().strip() == "y":
-                        logPrint("Continuing with backup for '" + username + "'\n")
-                    else:
-                        logPrint("Skipping backup for '" + username + "'\n")
-                        validUsername = False
-
-
+    for username in usersToBackup:
         logPrint()
         backupUser(username)
         logPrint()
+
+    # End program
+    elapsedBackupTime = datetime.now() - startTime
+    logPrint("\n--\nBackup complete in " + str(elapsedBackupTime) + "\nBackup folder path:\n" + backupFolderPath + "\n")
+    
+    input("Press Enter to quit.")
+    
+    sys.exit()
 
 # Given a source path, and a destination folder, will copy the source file/folder (and subfolders)
 # and create a destination path if necessary
@@ -309,7 +292,7 @@ def backupRoot():
         safeCopy(src_path, dest_path)
 
     # Back up all non-standard folders on C:
-    displayHeader("Backing up non-standard folders on C:\\")
+    displayHeader("Backing up non-standard folders on the root")
     src_path = ROOT_PATH
     dest_path = backupFolderPath
 
@@ -365,7 +348,7 @@ def backupUser(username):
     
     # Back up Work Folders
     # This goes file-by-file, because doing it all at once resulted in errors that were hard to catch and left the backup state unclear.
-    workFoldersPath  = os.path.join(userHomeFolder, "Documents", "repos")
+    workFoldersPath  = os.path.join(userHomeFolder, "Work Folders")
     if os.path.exists(workFoldersPath):
         displayHeader("Backing up Work Folders")
         # Finds every single file and directory + sub directories in the entire directory
