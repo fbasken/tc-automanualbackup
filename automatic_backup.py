@@ -14,17 +14,22 @@ import shutil
 from datetime import datetime
 from os.path import expanduser
 
-# If True, will attempt to elevate the program on launch (recommended!)
-REQUIRE_ADMIN = True
 
 # If True, will disable all actual copying/directory creation. Use when testing.
-DEBUG_ONLY_DONT_COPY = False
+DEBUG_ONLY_DONT_COPY = True
+
+# If True, will attempt to elevate the program on launch (recommended!)
+REQUIRE_ADMIN = not DEBUG_ONLY_DONT_COPY
+
+# Root of the file system.
+# TODO: Allow user to change this
+ROOT_PATH = "\\"
 
 # Backup root folder name
 backupFolderName = "_BACKUP"
 
 # Where to backup
-backupFolderPath = "\\ITS\\" + backupFolderName
+backupFolderPath = ROOT_PATH + "ITS\\" + backupFolderName
 
 # List of paths to back up, relative to the user folder
 userFolderPathsToCopy = [
@@ -64,6 +69,14 @@ userFolderPathsToCopy = [
         "Videos")
 ]
 
+# List of standard usernames
+standardUsernames = [
+    "All Users",
+    "Default",
+    "Public",
+    "Default User"
+]
+
 # List of standard folders found in the user folder
 standardItemsInUserFolder = [
     ".cisco",
@@ -85,7 +98,7 @@ standardItemsInUserFolder = [
 
 # List of root paths to copy
 rootFolderPathsToCopy = [
-    "\\SAS"
+    "SAS"
 ]
 
 # List of standard folders found in the root folder
@@ -109,8 +122,8 @@ standardItemsInRootFolder = [
     "System Volume Information"
 ]
 
-def logPrint(output=""):
-    print(output)
+def logPrint(output="", endl="\n"):
+    print(output, end=endl)
     logging.info(output)
     
 #   Adapted from https://stackoverflow.com/a/57647169
@@ -123,8 +136,9 @@ ES_SYSTEM_REQUIRED = 0x00000001
 
 def enableWindowsSleepPrevention(preventSleep):
     if (preventSleep):
-        logPrint("\n-- Preventing Windows from going to sleep")
-        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+        if (not DEBUG_ONLY_DONT_COPY):
+            logPrint("\n-- Preventing Windows from going to sleep")
+            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
     else:
         logPrint("\n-- Allowing Windows to go to sleep")
         ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
@@ -167,6 +181,40 @@ def main():
         # logPrint("Backup folder already exists. Would you like to make a new backup folder? [y/N] ")
         input("Press Enter to retry.\n")
 
+    # Display list of usernames
+    usersList = getUsersList()
+    logPrint("\nLocated " + str(len(usersList)) + " user accounts:")
+
+    for username in usersList:
+        # Skip standard usernames
+        if username in standardUsernames:
+            continue
+
+        userHomeFolder = getHomeFolderForUsername(username)
+
+        lastModifiedDate = datetime.fromtimestamp(os.path.getmtime(userHomeFolder))
+        timeSinceModified = datetime.now() - lastModifiedDate
+        monthsSinceModified = timeSinceModified.days / 30.4167
+
+        logPrint(username.ljust(12) +
+                 " | Last modified: " +
+                 str(round(monthsSinceModified, 1)) +
+                 " months ago | ","")
+        ans = input("Backup this user? [y/N] ")
+        if ans.lower().strip() == "y":
+            logPrint()
+
+        MONTH_LIMIT = 3
+        if (monthsSinceModified > MONTH_LIMIT):
+            logPrint("This user folder hasn't been modified in over " + str(MONTH_LIMIT) +" months.")
+            ans = input("Continue with backup? [y/N] ")
+            if ans.lower().strip() == "y":
+                logPrint("Continuing with backup for '" + username + "'\n")
+            else:
+                logPrint("Skipping backup for '" + username + "'\n")
+                validUsername = False
+
+
     logPrint()
     backupRoot()
     logPrint()
@@ -185,7 +233,6 @@ def main():
                 
                 sys.exit()
 
-            userHomeFolder = getHomeFolderForUsername(username)
             validUsername = os.path.exists(userHomeFolder)
 
             if (not validUsername):
@@ -256,17 +303,17 @@ def backupRoot():
     displayHeader("Backing up select root folders")
 
     for path in rootFolderPathsToCopy:
-        src_path = path
+        src_path = ROOT_PATH + path
         dest_path = backupFolderPath + path
 
         safeCopy(src_path, dest_path)
 
     # Back up all non-standard folders on C:
     displayHeader("Backing up non-standard folders on C:\\")
-    src_path = "\\"
+    src_path = ROOT_PATH
     dest_path = backupFolderPath
 
-    for filename in os.listdir("\\"):
+    for filename in os.listdir(src_path):
             fullFilePath = src_path + filename
             paddedOutput = fullFilePath.ljust(40)
             # Skip folders for these reasons:
@@ -433,7 +480,20 @@ def backupUser(username):
 
 # Returns the path to the user's home folder
 def getHomeFolderForUsername(username):
-    return os.path.join( "\\", "Users", username)
+    return os.path.join(ROOT_PATH, "Users", username)
+
+# Returns a list of all users
+def getUsersList():
+    users = []
+    usersFolder = os.path.join(ROOT_PATH, "Users")
+    for filename in os.listdir(usersFolder):
+        # If it's not a file (meaning it's a folder), then the folder name is the username
+        if not os.path.isfile(os.path.join(usersFolder, filename)):
+            users.append(filename)
+
+    return users
+
+        
 
 # -------------------------------------------------------------------- #
 
