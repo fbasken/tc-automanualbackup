@@ -16,7 +16,8 @@ from os.path import expanduser
 
 
 # If True, will disable all actual copying/directory creation. Use when testing.
-DEBUG_ONLY_DONT_COPY = True
+# For production, set to False
+DEBUG_ONLY_DONT_COPY = False
 
 # If True, will attempt to elevate the program on launch (recommended!)
 REQUIRE_ADMIN = not DEBUG_ONLY_DONT_COPY
@@ -286,7 +287,7 @@ def backupRoot():
     displayHeader("Backing up select root folders")
 
     for path in rootFolderPathsToCopy:
-        src_path = ROOT_PATH + path
+        src_path = os.path.join(ROOT_PATH, path)
         dest_path = backupFolderPath + path
 
         safeCopy(src_path, dest_path)
